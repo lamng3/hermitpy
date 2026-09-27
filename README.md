@@ -50,4 +50,5 @@ directions. Every satisfiable class with no stricter named parent is linked to
 `owl:Thing`. An inconsistent ontology raises `InconsistentOntology` instead of
 classifying every class as `owl:Nothing`.
 
-The API reference is [docs/index.html](docs/index.html).
+The API reference is published at <https://lamng3.github.io/hermitpy/>.
+The page source is [docs/index.html](docs/index.html).
