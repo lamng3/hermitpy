@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermitpy"
+version = "0.1.0"
+description = "A Python hypertableau reasoner for a documented OWL fragment."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [
+  { name = "SDLE Research Center, Case Western Reserve University" },
+]
+dependencies = ["rdflib"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

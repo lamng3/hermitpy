@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API Reference · HermitPy</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <a href="index.html"><strong>HermitPy</strong></a>
+    <nav><a class="active" href="index.html">API</a></nav>
+  </header>
+  <main>
+    <p class="eyebrow">Python API</p>
+    <h1>API reference</h1>
+    <p class="lede">Public classes for consistency checking and direct class hierarchy. HermitPy reads an <code>rdflib</code> graph and does not need a JVM.</p>
+
+    <div class="api-layout">
+      <aside class="api-index" aria-label="API table of contents">
+        <strong>On this page</strong>
+        <a href="#reasoner">Reasoner</a>
+        <a href="#errors">Errors</a>
+        <a href="#fragment">Fragment</a>
+      </aside>
+      <div class="api-content">
+
+        <section id="reasoner" class="api-section">
+          <p class="eyebrow">hermitpy</p>
+          <h2>Reasoner</h2>
+          <p>Classify one ontology. Construct it from an <code>rdflib.graph.Graph</code> already parsed from Turtle, RDF/XML, or another format rdflib accepts.</p>
+          <pre class="signature"><code>Reasoner(graph: Graph)</code></pre>
+          <table>
+            <tr><th>Method</th><th>Returns</th><th>Purpose</th></tr>
+            <tr><td><code>is_consistent()</code></td><td><code>bool</code></td><td>Whether the ontology has a model.</td></tr>
+            <tr><td><code>unsatisfiable_classes()</code></td><td><code>list[str]</code></td><td>Named class IRIs that are empty in every model. If the ontology is inconsistent, every named class is returned.</td></tr>
+            <tr><td><code>direct_subclasses()</code></td><td><code>list[tuple[str, str]]</code></td><td>Direct <code>(subclass, superclass)</code> IRI pairs. Equivalent classes appear in both directions. Satisfiable classes with no stricter named parent link to <code>owl:Thing</code>. Unsatisfiable classes link to <code>owl:Nothing</code>.</td></tr>
+          </table>
+          <pre><code>from rdflib import Graph
+from hermitpy import Reasoner
+
+graph = Graph()
+graph.parse("ontology.ttl")
+reasoner = Reasoner(graph)
+
+if reasoner.is_consistent():
+    for child, parent in reasoner.direct_subclasses():
+        print(child, "rdfs:subClassOf", parent)</code></pre>
+          <p><span class="badge">rdflib.Graph</span><span class="badge">No JVM</span> <a class="source-link" href="https://github.com/lamng3/hermitpy/blob/main/src/hermitpy/reasoner.py">View source →</a></p>
+        </section>
+
+        <section id="errors" class="api-section">
+          <p class="eyebrow">hermitpy</p>
+          <h2>Errors</h2>
+          <table>
+            <tr><th>Exception</th><th>When</th></tr>
+            <tr><td><code>UnsupportedConstruct</code></td><td>The graph uses OWL outside the fragment, including datatypes, cardinality, property chains, nominals, role hierarchies, keys, and SWRL. The construct is named on the exception and is not ignored.</td></tr>
+            <tr><td><code>InconsistentOntology</code></td><td><code>direct_subclasses()</code> was called on an ontology with no model.</td></tr>
+            <tr><td><code>ReasonerLimitExceeded</code></td><td>The tableau exceeded its node or search-depth bound.</td></tr>
+          </table>
+          <pre><code>from hermitpy import InconsistentOntology, UnsupportedConstruct
+
+try:
+    pairs = reasoner.direct_subclasses()
+except InconsistentOntology:
+    print(reasoner.unsatisfiable_classes())
+except UnsupportedConstruct as error:
+    print(error.construct)</code></pre>
+          <p><a class="source-link" href="https://github.com/lamng3/hermitpy/blob/main/src/hermitpy/errors.py">View source →</a></p>
+        </section>
+
+        <section id="fragment" class="api-section">
+          <p class="eyebrow">OWL fragment</p>
+          <h2>What the reasoner accepts</h2>
+          <table>
+            <tr><th>Accepted</th><th>Raises <code>UnsupportedConstruct</code></th></tr>
+            <tr>
+              <td>Named classes, <code>owl:Thing</code>, <code>owl:Nothing</code>, subclass, equivalence, disjointness, complement, intersection, union, existential and universal object restrictions, inverses, transitive and symmetric object properties, domain, range, class assertions, and object-property assertions.</td>
+              <td>Datatype restrictions and literal assertions, cardinality, property chains, <code>owl:oneOf</code>, role inclusion, keys, <code>owl:sameAs</code>, and SWRL.</td>
+            </tr>
+          </table>
+          <p class="note"><code>direct_subclasses()</code> refuses an inconsistent ontology. It does not classify every class as a subclass of <code>owl:Nothing</code>.</p>
+        </section>
+
+      </div>
+    </div>
+  </main>
+  <footer>HermitPy is LGPL-3.0-or-later. The calculus follows HermiT, copyright Oxford University Computing Laboratory 2008–2014.</footer>
+</body>
+</html>
