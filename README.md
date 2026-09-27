@@ -1,13 +1,13 @@
 # hermitpy
 
-hermitpy is a Python reasoner for a documented fragment of OWL. It decides
-consistency and builds a direct class hierarchy with a hypertableau completion
-graph. It does not need a JVM.
+hermitpy is a Python OWL reasoner. It checks whether an ontology is consistent
+and builds a direct class hierarchy for a documented fragment of OWL. Reasoning
+uses a hypertableau completion graph and does not need a JVM.
 
-The procedure follows the hypertableau calculus published for HermiT
-(Motik, Shearer, and Horrocks, 2009). HermiT itself is copyright Oxford
-University Computing Laboratory, 2008-2014, and is licensed under LGPL-3.0.
-hermitpy is a separate implementation under the same license. See `NOTICE`.
+The decision procedure follows Motik, Shearer, and Horrocks, "Hypertableau
+Reasoning for Description Logics," Journal of Artificial Intelligence
+Research, 2009. hermitpy is licensed under LGPL-3.0-or-later. See `LICENSE`
+and `NOTICE`.
 
 ## Fragment
 

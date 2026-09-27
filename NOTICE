@@ -1,12 +1,11 @@
-hermitpy is a Python description-logic reasoner maintained for OntoCheck.
-It implements the hypertableau decision procedure for a documented OWL
-fragment. The calculus follows HermiT, copyright Oxford University Computing
-Laboratory 2008-2014, and the published account in:
+hermitpy is a Python description-logic reasoner. It implements the
+hypertableau decision procedure for a documented OWL fragment, following:
 
 Motik, Shearer, and Horrocks. Hypertableau Reasoning for Description Logics.
 Journal of Artificial Intelligence Research, 2009.
 
+HermiT, the reasoner that introduced this calculus, is copyright Oxford
+University Computing Laboratory 2008-2014.
+
 This package is licensed under the GNU Lesser General Public License,
-version 3 or later, the same license as HermiT. It is not a copy of
-TigreGotico/pyhermit or OAEI-ML/pyHermiT. OntoCheck imports hermitpy and
-remains under CC BY 4.0.
+version 3 or later. See LICENSE.
