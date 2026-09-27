@@ -45,6 +45,8 @@ reasoner.is_consistent()
 reasoner.direct_subclasses()
 ```
 
+Examples are in `examples/`.
+
 `direct_subclasses` returns pairs of IRIs. Equivalent classes appear in both
 directions. Every satisfiable class with no stricter named parent is linked to
 `owl:Thing`. An inconsistent ontology raises `InconsistentOntology` instead of

@@ -1,0 +1,5 @@
+@prefix ex: <https://example.org/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+ex:Dog owl:disjointWith ex:Cat .
+ex:fido a ex:Dog, ex:Cat .
