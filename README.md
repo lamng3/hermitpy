@@ -16,13 +16,14 @@ Supported:
 - named classes, `owl:Thing`, and `owl:Nothing`
 - `rdfs:subClassOf`, `owl:equivalentClass`, `owl:disjointWith`, and `owl:complementOf`
 - `owl:intersectionOf` and `owl:unionOf`
-- `owl:someValuesFrom` and `owl:allValuesFrom` on object properties
+- `owl:someValuesFrom` and `owl:allValuesFrom` on object and datatype properties
+- numeric datatype restrictions (`xsd:minInclusive`, `xsd:maxInclusive`, `xsd:minExclusive`, `xsd:maxExclusive`)
 - `owl:inverseOf`, `owl:TransitiveProperty`, and `owl:SymmetricProperty`
 - `rdfs:domain` and `rdfs:range`
 - class assertions and object-property assertions on named individuals
 
-Datatype restrictions, cardinality, property chains, nominals, role hierarchies,
-keys, and SWRL raise `UnsupportedConstruct`. They are not dropped.
+Cardinality, property chains, nominals, role hierarchies, keys, and SWRL raise
+`UnsupportedConstruct`. They are not dropped.
 
 ## Install
 

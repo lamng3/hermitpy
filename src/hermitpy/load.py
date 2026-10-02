@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Set, Tuple
+from decimal import Decimal
+from typing import Dict, List, Optional, Set, Tuple
 
 from rdflib import BNode, Graph, Literal, Namespace, URIRef
 from rdflib.collection import Collection
@@ -12,10 +13,15 @@ from .syntax import (
     OWL_NOTHING,
     OWL_THING,
     BOTTOM,
+    LITERAL,
     TOP,
     Atom,
     Concept,
     Conj,
+    DataExists,
+    DataForall,
+    DataLiteral,
+    DataRange,
     Disj,
     Exists,
     Forall,
@@ -33,6 +39,8 @@ SWRL = "http://www.w3.org/2003/11/swrl#"
 
 _KNOWN_OWL_PREDICATES = {
     OWL.onProperty,
+    OWL.onDatatype,
+    OWL.withRestrictions,
     OWL.someValuesFrom,
     OWL.allValuesFrom,
     OWL.intersectionOf,
@@ -63,7 +71,6 @@ _UNSUPPORTED_TYPES = {
     OWL.AsymmetricProperty,
     OWL.IrreflexiveProperty,
     OWL.ReflexiveProperty,
-    OWL.DatatypeProperty,
     OWL.AllDifferent,
     OWL.AllDisjointClasses,
     OWL.AllDisjointProperties,
@@ -74,6 +81,7 @@ _DECLARATIONS = _UNSUPPORTED_TYPES | {
     OWL.Class,
     OWL.Restriction,
     OWL.ObjectProperty,
+    OWL.DatatypeProperty,
     OWL.AnnotationProperty,
     OWL.TransitiveProperty,
     OWL.SymmetricProperty,
@@ -248,17 +256,28 @@ def _collect_axioms(graph: Graph, ontology: Ontology) -> None:
         right = parser.parse(obj)
         add_inclusion(left, negate(right))
         add_inclusion(right, negate(left))
+    data_properties = {
+        subject
+        for subject in graph.subjects(RDF.type, OWL.DatatypeProperty)
+        if isinstance(subject, URIRef)
+    }
     for prop, obj in graph.subject_objects(RDFS.domain):
         if _is_annotation(graph, prop):
             continue
         if not isinstance(prop, URIRef):
             raise UnsupportedConstruct("anonymous rdfs:domain")
+        if prop in data_properties:
+            add_inclusion(DataExists(str(prop), LITERAL), parser.parse(obj))
+            continue
         add_domain(ontology.canonical(str(prop)), parser.parse(obj))
     for prop, obj in graph.subject_objects(RDFS.range):
         if _is_annotation(graph, prop):
             continue
         if not isinstance(prop, URIRef):
             raise UnsupportedConstruct("anonymous rdfs:range")
+        if parser.is_data_range(obj):
+            add_inclusion(TOP, DataForall(str(prop), parser.parse_data_range(obj)))
+            continue
         add_range(ontology.canonical(str(prop)), parser.parse(obj))
     for subject in graph.subjects(RDF.type, OWL.Class):
         if isinstance(subject, URIRef) and str(subject) not in (OWL_THING, OWL_NOTHING):
@@ -316,9 +335,15 @@ def _collect_assertions(graph: Graph, ontology: Ontology, annotations: set) -> N
         if _is_reserved(predicate) or predicate in annotations:
             continue
         if isinstance(obj, Literal):
-            raise UnsupportedConstruct(
-                "literal assertion on {}".format(_term_name(predicate))
-            )
+            if not isinstance(subject, URIRef):
+                raise UnsupportedConstruct("literal assertion")
+            iri = individual(subject)
+            filler = _literal_range(obj)
+            fact = DataLiteral(str(predicate), filler)
+            bucket = concepts.setdefault(iri, [])
+            if fact not in bucket:
+                bucket.append(fact)
+            continue
         if isinstance(subject, BNode) or isinstance(obj, BNode):
             raise UnsupportedConstruct("anonymous individual")
         if not isinstance(subject, URIRef) or not isinstance(obj, URIRef):
@@ -397,10 +422,58 @@ class _ClassParser:
                 "restriction with both someValuesFrom and allValuesFrom"
             )
         if some is not None:
+            if self.is_data_range(some):
+                self._require_forward_data_role(role)
+                return nnf(DataExists(role.iri, self.parse_data_range(some)))
             return nnf(Exists(role, self.parse(some)))
         if every is not None:
+            if self.is_data_range(every):
+                self._require_forward_data_role(role)
+                return nnf(DataForall(role.iri, self.parse_data_range(every)))
             return nnf(Forall(role, self.parse(every)))
         raise UnsupportedConstruct("owl:Restriction")
+
+    def _require_forward_data_role(self, role: Role) -> None:
+        if role.inverse:
+            raise UnsupportedConstruct("datatype restriction on an inverse property")
+
+    def is_data_range(self, node) -> bool:
+        if isinstance(node, URIRef):
+            return _xsd_range(str(node)) is not None
+        if isinstance(node, BNode):
+            return self.graph.value(node, OWL.onDatatype) is not None or (
+                node,
+                RDF.type,
+                RDFS.Datatype,
+            ) in self.graph
+        return False
+
+    def parse_data_range(self, node) -> DataRange:
+        if isinstance(node, URIRef):
+            found = _xsd_range(str(node))
+            if found is None:
+                raise UnsupportedConstruct("datatype {}".format(node))
+            return found
+        if not isinstance(node, BNode):
+            raise UnsupportedConstruct("datatype")
+        base = self.graph.value(node, OWL.onDatatype)
+        if not isinstance(base, URIRef):
+            raise UnsupportedConstruct("datatype restriction")
+        data_range = _xsd_range(str(base))
+        if data_range is None:
+            raise UnsupportedConstruct("datatype {}".format(base))
+        facets = self.graph.value(node, OWL.withRestrictions)
+        if facets is None:
+            return data_range
+        try:
+            members = list(Collection(self.graph, facets))
+        except (ValueError, TypeError) as error:
+            raise UnsupportedConstruct("datatype restriction") from error
+        for facet in members:
+            data_range = _apply_facet(self.graph, data_range, facet)
+        if data_range.empty():
+            return data_range
+        return data_range
 
     def _parse_role(self, node) -> Role:
         if isinstance(node, URIRef):
@@ -441,6 +514,108 @@ def _is_annotation(graph: Graph, prop) -> bool:
 def _is_reserved(predicate) -> bool:
     iri = str(predicate)
     return any(iri.startswith(namespace) for namespace in _RESERVED_NAMESPACES)
+
+
+_XSD_RANGES = {
+    "integer": DataRange("numeric", integer_only=True),
+    "int": DataRange("numeric", integer_only=True),
+    "long": DataRange("numeric", integer_only=True),
+    "short": DataRange("numeric", integer_only=True),
+    "nonNegativeInteger": DataRange("numeric", Decimal(0), integer_only=True),
+    "positiveInteger": DataRange("numeric", Decimal(1), integer_only=True),
+    "nonPositiveInteger": DataRange(
+        "numeric", upper=Decimal(0), integer_only=True
+    ),
+    "negativeInteger": DataRange(
+        "numeric", upper=Decimal(-1), integer_only=True
+    ),
+    "decimal": DataRange("numeric"),
+    "double": DataRange("numeric"),
+    "float": DataRange("numeric"),
+    "string": DataRange("string"),
+    "anyURI": DataRange("string"),
+    "date": DataRange("string"),
+    "dateTime": DataRange("string"),
+    "boolean": DataRange("boolean"),
+}
+
+
+def _xsd_range(iri: str) -> Optional[DataRange]:
+    if iri == str(RDFS.Literal):
+        return DataRange("literal")
+    if iri in (str(OWL.real), str(OWL.rational)):
+        return DataRange("numeric")
+    if not iri.startswith(str(XSD)):
+        return None
+    return _XSD_RANGES.get(iri[len(str(XSD)) :])
+
+
+def _apply_facet(graph: Graph, data_range: DataRange, facet) -> DataRange:
+    if not isinstance(facet, BNode):
+        raise UnsupportedConstruct("datatype facet")
+    updated = data_range
+    found = False
+    for predicate, value in graph.predicate_objects(facet):
+        name = str(predicate)[len(str(XSD)) :] if str(predicate).startswith(str(XSD)) else ""
+        if name not in {"minInclusive", "minExclusive", "maxInclusive", "maxExclusive"}:
+            raise UnsupportedConstruct("datatype facet {}".format(_term_name(predicate)))
+        if not isinstance(value, Literal):
+            raise UnsupportedConstruct("datatype facet")
+        found = True
+        number = Decimal(str(value))
+        inclusive = name.endswith("Inclusive")
+        if name.startswith("min"):
+            updated = _set_lower(updated, number, inclusive)
+        else:
+            updated = _set_upper(updated, number, inclusive)
+    if not found:
+        raise UnsupportedConstruct("datatype facet")
+    return updated
+
+
+def _set_lower(data_range: DataRange, number: Decimal, inclusive: bool) -> DataRange:
+    lower, lower_inclusive = data_range.lower, data_range.lower_inclusive
+    if lower is None or number > lower:
+        lower, lower_inclusive = number, inclusive
+    elif number == lower:
+        lower_inclusive = lower_inclusive and inclusive
+    return DataRange(
+        data_range.kind,
+        lower,
+        data_range.upper,
+        lower_inclusive,
+        data_range.upper_inclusive,
+        data_range.integer_only,
+        data_range.complemented,
+    )
+
+
+def _set_upper(data_range: DataRange, number: Decimal, inclusive: bool) -> DataRange:
+    upper, upper_inclusive = data_range.upper, data_range.upper_inclusive
+    if upper is None or number < upper:
+        upper, upper_inclusive = number, inclusive
+    elif number == upper:
+        upper_inclusive = upper_inclusive and inclusive
+    return DataRange(
+        data_range.kind,
+        data_range.lower,
+        upper,
+        data_range.lower_inclusive,
+        upper_inclusive,
+        data_range.integer_only,
+        data_range.complemented,
+    )
+
+
+def _literal_range(literal: Literal) -> DataRange:
+    datatype = str(literal.datatype) if literal.datatype is not None else str(XSD.string)
+    base = _xsd_range(datatype)
+    if base is None:
+        raise UnsupportedConstruct("literal datatype {}".format(datatype))
+    if base.kind == "numeric":
+        number = Decimal(str(literal))
+        return DataRange("numeric", number, number, True, True, base.integer_only)
+    return DataRange(base.kind)
 
 
 def _term_name(term) -> str:

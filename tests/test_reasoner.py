@@ -252,19 +252,53 @@ class RejectionTests(unittest.TestCase):
             reasoner("ex:C owl:oneOf ( ex:a ex:b ) .")
         self.assertIn("oneOf", str(raised.exception))
 
-    def test_datatype_filler_is_rejected(self):
-        with self.assertRaises(UnsupportedConstruct) as raised:
-            reasoner(
-                """
-                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-                ex:C rdfs:subClassOf [
-                    a owl:Restriction ;
-                    owl:onProperty ex:age ;
-                    owl:someValuesFrom xsd:integer
-                ] .
-                """
-            )
-        self.assertIn("datatype", str(raised.exception))
+    def test_datatype_restriction_matches_a_satisfiable_class(self):
+        classified = reasoner(
+            """
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+            ex:age a owl:DatatypeProperty .
+            ex:Adult rdfs:subClassOf [
+                a owl:Restriction ;
+                owl:onProperty ex:age ;
+                owl:someValuesFrom [
+                    a rdfs:Datatype ;
+                    owl:onDatatype xsd:integer ;
+                    owl:withRestrictions ( [ xsd:minInclusive 18 ] )
+                ]
+            ] .
+            """
+        )
+        self.assertTrue(classified.is_consistent())
+        self.assertEqual(classified.unsatisfiable_classes(), [])
+        self.assertIn((iri("Adult"), THING), classified.direct_subclasses())
+
+    def test_disjoint_numeric_bounds_make_the_class_unsatisfiable(self):
+        classified = reasoner(
+            """
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+            ex:age a owl:DatatypeProperty .
+            ex:Adult rdfs:subClassOf [
+                a owl:Restriction ;
+                owl:onProperty ex:age ;
+                owl:someValuesFrom [
+                    a rdfs:Datatype ;
+                    owl:onDatatype xsd:integer ;
+                    owl:withRestrictions ( [ xsd:minInclusive 18 ] )
+                ]
+            ] , [
+                a owl:Restriction ;
+                owl:onProperty ex:age ;
+                owl:allValuesFrom [
+                    a rdfs:Datatype ;
+                    owl:onDatatype xsd:integer ;
+                    owl:withRestrictions ( [ xsd:maxInclusive 10 ] )
+                ]
+            ] .
+            """
+        )
+        self.assertTrue(classified.is_consistent())
+        self.assertEqual(classified.unsatisfiable_classes(), [iri("Adult")])
+        self.assertIn((iri("Adult"), NOTHING), classified.direct_subclasses())
 
     def test_labels_are_ignored(self):
         classified = reasoner('ex:Dog rdfs:label "Dog" ; rdfs:subClassOf ex:Animal .')

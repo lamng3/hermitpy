@@ -17,10 +17,11 @@ class Reasoner:
 
     The supported fragment is named classes, ``rdfs:subClassOf``,
     ``owl:equivalentClass``, ``owl:disjointWith``, complement, intersection,
-    union, existential and universal object restrictions, inverses, transitive
-    and symmetric object properties, ``rdfs:domain``, ``rdfs:range``, class
-    assertions, and object-property assertions. Other OWL constructs raise
-    ``UnsupportedConstruct``.
+    union, existential and universal restrictions on object and datatype
+    properties, numeric datatype bounds, inverses, transitive and symmetric
+    object properties, ``rdfs:domain``, ``rdfs:range``, class assertions,
+    object-property assertions, and literal assertions. Other OWL constructs
+    raise ``UnsupportedConstruct``.
     """
 
     def __init__(self, graph: Graph) -> None:

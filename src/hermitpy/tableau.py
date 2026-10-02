@@ -13,11 +13,16 @@ from .syntax import (
     Atom,
     Conj,
     Concept,
+    DataExists,
+    DataForall,
+    DataLiteral,
+    DataRange,
     Disj,
     Exists,
     Forall,
     Neg,
     Role,
+    data_allows,
     nnf,
 )
 
@@ -264,4 +269,24 @@ class Solver:
         if BOTTOM in label:
             return True
         atoms = {concept.iri for concept in label if isinstance(concept, Atom)}
-        return any(isinstance(concept, Neg) and concept.iri in atoms for concept in label)
+        if any(isinstance(concept, Neg) and concept.iri in atoms for concept in label):
+            return True
+        return _data_clash(label)
+
+
+def _data_clash(label: Set[Concept]) -> bool:
+    exists: Dict[str, List[DataRange]] = {}
+    foralls: Dict[str, List[DataRange]] = {}
+    literals: Dict[str, List[DataRange]] = {}
+    for concept in label:
+        if isinstance(concept, DataExists):
+            exists.setdefault(concept.role, []).append(concept.filler)
+        elif isinstance(concept, DataForall):
+            foralls.setdefault(concept.role, []).append(concept.filler)
+        elif isinstance(concept, DataLiteral):
+            literals.setdefault(concept.role, []).append(concept.filler)
+    for role in set(exists) | set(foralls) | set(literals):
+        for filler in exists.get(role, []) + literals.get(role, []):
+            if not data_allows(filler, foralls.get(role, [])):
+                return True
+    return False
