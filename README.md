@@ -1,5 +1,7 @@
 # hermitpy
 
+[Documentation](https://lamng3.github.io/hermit-docs/)
+
 hermitpy is a Python OWL reasoner. It checks whether an ontology is consistent
 and builds a direct class hierarchy for a documented fragment of OWL. Reasoning
 uses a hypertableau completion graph and does not need a JVM.
@@ -53,5 +55,7 @@ directions. Every satisfiable class with no stricter named parent is linked to
 `owl:Thing`. An inconsistent ontology raises `InconsistentOntology` instead of
 classifying every class as `owl:Nothing`.
 
-The API reference is published at <https://lamng3.github.io/hermitpy/>.
-The page source is [docs/index.html](docs/index.html).
+Notes on the fragment, the API, and the hypertableau are published at
+<https://lamng3.github.io/hermit-docs/>.
+The short API page in this repository is [docs/index.html](docs/index.html),
+also served at <https://lamng3.github.io/hermitpy/>.
